@@ -1,37 +1,39 @@
 /*****************************************************************
-JADE - Java Agent DEvelopment Framework is a framework to develop 
-multi-agent systems in compliance with the FIPA specifications.
-Copyright (C) 2000 CSELT S.p.A. 
+ JADE - Java Agent DEvelopment Framework is a framework to develop
+ multi-agent systems in compliance with the FIPA specifications.
+ Copyright (C) 2000 CSELT S.p.A.
 
-GNU Lesser General Public License
+ GNU Lesser General Public License
 
-This library is free software; you can redistribute it and/or
-modify it under the terms of the GNU Lesser General Public
-License as published by the Free Software Foundation, 
-version 2.1 of the License. 
+ This library is free software; you can redistribute it and/or
+ modify it under the terms of the GNU Lesser General Public
+ License as published by the Free Software Foundation,
+ version 2.1 of the License.
 
-This library is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-Lesser General Public License for more details.
+ This library is distributed in the hope that it will be useful,
+ but WITHOUT ANY WARRANTY; without even the implied warranty of
+ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ Lesser General Public License for more details.
 
-You should have received a copy of the GNU Lesser General Public
-License along with this library; if not, write to the
-Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-Boston, MA  02111-1307, USA.
+ You should have received a copy of the GNU Lesser General Public
+ License along with this library; if not, write to the
+ Free Software Foundation, Inc., 59 Temple Place - Suite 330,
+ Boston, MA  02111-1307, USA.
  *****************************************************************/
 
 package chat.client.gui;
 
+import jade.android.AgentContainerHandler;
+import jade.android.AgentHandler;
 import jade.android.AndroidHelper;
-import jade.android.MicroRuntimeService;
-import jade.android.MicroRuntimeServiceBinder;
 import jade.android.RuntimeCallback;
+import jade.android.RuntimeService;
 import jade.android.RuntimeServiceBinder;
-import jade.core.MicroRuntime;
 import jade.core.Profile;
+import jade.core.Runtime;
 import jade.util.Logger;
 import jade.util.leap.Properties;
+import jade.wrapper.AgentContainer;
 import jade.wrapper.AgentController;
 import jade.wrapper.ControllerException;
 
@@ -59,128 +61,130 @@ import android.view.View.OnClickListener;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.TextView;
+
 import chat.client.agent.ChatClientAgent;
 
 /**
  * This activity implement the main interface.
- * 
+ *
  * @author Michele Izzo - Telecomitalia
  */
 
 public class MainActivity extends Activity {
-	private Logger logger = Logger.getJADELogger(this.getClass().getName());
+    private Logger logger = Logger.getJADELogger(this.getClass().getName());
 
-	private MicroRuntimeServiceBinder microRuntimeServiceBinder;
-	private ServiceConnection serviceConnection;
+    private RuntimeServiceBinder runtimeServiceBinder;
+    private ServiceConnection serviceConnection;
 
-	static final int CHAT_REQUEST = 0;
-	static final int SETTINGS_REQUEST = 1;
+    static final int CHAT_REQUEST = 0;
+    static final int SETTINGS_REQUEST = 1;
 
-	private MyReceiver myReceiver;
-	private MyHandler myHandler;
+    private MyReceiver myReceiver;
+    private MyHandler myHandler;
 
-	private TextView infoTextView;
+    private TextView infoTextView;
 
-	private String nickname;
+    private String nickname;
 
-	@Override
-	public void onCreate(Bundle savedInstanceState) {
-		super.onCreate(savedInstanceState);
+    @Override
+    public void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
 
-		myReceiver = new MyReceiver();
+        myReceiver = new MyReceiver();
 
-		IntentFilter killFilter = new IntentFilter();
-		killFilter.addAction("jade.demo.chat.KILL");
-		registerReceiver(myReceiver, killFilter);
+        IntentFilter killFilter = new IntentFilter();
+        killFilter.addAction("jade.demo.chat.KILL");
+        registerReceiver(myReceiver, killFilter);
 
-		IntentFilter showChatFilter = new IntentFilter();
-		showChatFilter.addAction("jade.demo.chat.SHOW_CHAT");
-		registerReceiver(myReceiver, showChatFilter);
+        IntentFilter showChatFilter = new IntentFilter();
+        showChatFilter.addAction("jade.demo.chat.SHOW_CHAT");
+        registerReceiver(myReceiver, showChatFilter);
 
-		myHandler = new MyHandler();
+        myHandler = new MyHandler();
 
-		setContentView(R.layout.main);
+        setContentView(R.layout.main);
 
-		Button button = (Button) findViewById(R.id.button_chat);
-		button.setOnClickListener(buttonChatListener);
+        Button button = (Button) findViewById(R.id.button_chat);
+        button.setOnClickListener(buttonChatListener);
 
-		infoTextView = (TextView) findViewById(R.id.infoTextView);
-		infoTextView.setText("");
-	}
+        infoTextView = (TextView) findViewById(R.id.infoTextView);
+        infoTextView.setText("");
+    }
 
-	@Override
-	protected void onDestroy() {
-		super.onDestroy();
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
 
-		unregisterReceiver(myReceiver);
+        unregisterReceiver(myReceiver);
 
-		logger.log(Level.INFO, "Destroy activity!");
-	}
+        logger.log(Level.INFO, "Destroy activity!");
+    }
 
-	private static boolean checkName(String name) {
-		if (name == null || name.trim().equals("")) {
-			return false;
-		}
-		// FIXME: should also check that name is composed
-		// of letters and digits only
-		return true;
-	}
+    private static boolean checkName(String name) {
+        if (name == null || name.trim().equals("")) {
+            return false;
+        }
+        // FIXME: should also check that name is composed
+        // of letters and digits only
+        return true;
+    }
 
-	private OnClickListener buttonChatListener = new OnClickListener() {
-		public void onClick(View v) {
-			final EditText nameField = (EditText) findViewById(R.id.edit_nickname);
-			nickname = nameField.getText().toString();
-			if (!checkName(nickname)) {
-				logger.log(Level.INFO, "Invalid nickname!");
-				myHandler.postError(getString(R.string.msg_nickname_not_valid));
-			} else {
-				try {
-					SharedPreferences settings = getSharedPreferences(
-							"jadeChatPrefsFile", 0);
-					String host = settings.getString("defaultHost", "");
-					String port = settings.getString("defaultPort", "");
-					infoTextView.setText(getString(R.string.msg_connecting_to)
-							+ " " + host + ":" + port + "...");
-					startChat(nickname, host, port, agentStartupCallback);
-				} catch (Exception ex) {
-					logger.log(Level.SEVERE, "Unexpected exception creating chat agent!");
-					infoTextView.setText(getString(R.string.msg_unexpected));
-				}
-			}
-		}
-	};
+    private OnClickListener buttonChatListener = new OnClickListener() {
+        public void onClick(View v) {
+            final EditText nameField = (EditText) findViewById(R.id.edit_nickname);
+            nickname = nameField.getText().toString();
+            if (!checkName(nickname)) {
+                logger.log(Level.INFO, "Invalid nickname!");
+                myHandler.postError(getString(R.string.msg_nickname_not_valid));
+            } else {
+                try {
+                    SharedPreferences settings = getSharedPreferences(
+                            "jadeChatPrefsFile", 0);
+                    String host = settings.getString("defaultHost", "");
+                    String port = settings.getString("defaultPort", "");
+                    infoTextView.setText(getString(R.string.msg_connecting_to)
+                            + " " + host + ":" + port + "...");
+                    startChat(nickname, host, port, agentStartupCallback);
+                } catch (Exception ex) {
+                    logger.log(Level.SEVERE, "Unexpected exception creating chat agent!");
+                    infoTextView.setText(getString(R.string.msg_unexpected));
+                }
+            }
+        }
+    };
 
-	@Override
-	public boolean onCreateOptionsMenu(Menu menu) {
-		MenuInflater inflater = getMenuInflater();
-		inflater.inflate(R.menu.main_menu, menu);
-		return true;
-	}
+    @Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+        MenuInflater inflater = getMenuInflater();
+        inflater.inflate(R.menu.main_menu, menu);
+        return true;
+    }
 
-	@Override
-	public boolean onOptionsItemSelected(MenuItem item) {
-		switch (item.getItemId()) {
-		case R.id.menu_settings:
-			Intent showSettings = new Intent(MainActivity.this,
-					SettingsActivity.class);
-			MainActivity.this.startActivityForResult(showSettings,
-					SETTINGS_REQUEST);
-			return true;
-		case R.id.menu_exit:
-			finish();
-		default:
-			return super.onOptionsItemSelected(item);
-		}
-	}
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+        switch (item.getItemId()) {
+            case R.id.menu_settings:
+                Intent showSettings = new Intent(MainActivity.this,
+                        SettingsActivity.class);
+                MainActivity.this.startActivityForResult(showSettings,
+                        SETTINGS_REQUEST);
+                return true;
+            case R.id.menu_exit:
+                finish();
+            default:
+                return super.onOptionsItemSelected(item);
+        }
+    }
 
-	@Override
-	protected void onActivityResult(int requestCode, int resultCode, Intent data) {
-		if (requestCode == CHAT_REQUEST) {
-			if (resultCode == RESULT_CANCELED) {
-				// The chat activity was closed.
-				infoTextView.setText("");
-				logger.log(Level.INFO, "Stopping Jade...");
-				microRuntimeServiceBinder
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        if (requestCode == CHAT_REQUEST) {
+            if (resultCode == RESULT_CANCELED) {
+                // The chat activity was closed.
+                infoTextView.setText("");
+                logger.log(Level.INFO, "Stopping Jade...");
+                /*
+                runtimeServiceBinder
 						.stopAgentContainer(new RuntimeCallback<Void>() {
 							@Override
 							public void onSuccess(Void thisIsNull) {
@@ -194,121 +198,125 @@ public class MainActivity extends Activity {
 								agentStartupCallback.onFailure(throwable);
 							}
 						});
-			}
-		}
-	}
+						*/
+            }
+        }
+    }
 
-	private RuntimeCallback<AgentController> agentStartupCallback = new RuntimeCallback<AgentController>() {
-		@Override
-		public void onSuccess(AgentController agent) {
-		}
+    private RuntimeCallback<AgentController> agentStartupCallback = new RuntimeCallback<AgentController>() {
+        @Override
+        public void onSuccess(AgentController agent) {
+        }
 
-		@Override
-		public void onFailure(Throwable throwable) {
-			logger.log(Level.INFO, "Nickname already in use!");
-			myHandler.postError(getString(R.string.msg_nickname_in_use));
-		}
-	};
+        @Override
+        public void onFailure(Throwable throwable) {
+            logger.log(Level.INFO, "Nickname already in use!");
+            myHandler.postError(getString(R.string.msg_nickname_in_use));
+        }
+    };
 
-	public void ShowDialog(String message) {
-		AlertDialog.Builder builder = new AlertDialog.Builder(MainActivity.this);
-		builder.setMessage(message).setCancelable(false)
-				.setPositiveButton("Ok", new DialogInterface.OnClickListener() {
-					public void onClick(DialogInterface dialog, int id) {
-						dialog.cancel();
-					}
-				});
-		AlertDialog alert = builder.create();
-		alert.show();
-	}
+    public void ShowDialog(String message) {
+        AlertDialog.Builder builder = new AlertDialog.Builder(MainActivity.this);
+        builder.setMessage(message).setCancelable(false)
+                .setPositiveButton("Ok", new DialogInterface.OnClickListener() {
+                    public void onClick(DialogInterface dialog, int id) {
+                        dialog.cancel();
+                    }
+                });
+        AlertDialog alert = builder.create();
+        alert.show();
+    }
 
-	private class MyReceiver extends BroadcastReceiver {
+    private class MyReceiver extends BroadcastReceiver {
 
-		@Override
-		public void onReceive(Context context, Intent intent) {
-			String action = intent.getAction();
-			logger.log(Level.INFO, "Received intent " + action);
-			if (action.equalsIgnoreCase("jade.demo.chat.KILL")) {
-				finish();
-			}
-			if (action.equalsIgnoreCase("jade.demo.chat.SHOW_CHAT")) {
-				Intent showChat = new Intent(MainActivity.this,
-						ChatActivity.class);
-				showChat.putExtra("nickname", nickname);
-				MainActivity.this
-						.startActivityForResult(showChat, CHAT_REQUEST);
-			}
-		}
-	}
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            String action = intent.getAction();
+            logger.log(Level.INFO, "Received intent " + action);
+            if (action.equalsIgnoreCase("jade.demo.chat.KILL")) {
+                finish();
+            }
+            if (action.equalsIgnoreCase("jade.demo.chat.SHOW_CHAT")) {
+                Intent showChat = new Intent(MainActivity.this,
+                        ChatActivity.class);
+                showChat.putExtra("nickname", nickname);
+                MainActivity.this
+                        .startActivityForResult(showChat, CHAT_REQUEST);
+            }
+        }
+    }
 
-	private class MyHandler extends Handler {
-		@Override
-		public void handleMessage(Message msg) {
-			Bundle bundle = msg.getData();
-			if (bundle.containsKey("error")) {
-				infoTextView.setText("");
-				String message = bundle.getString("error");
-				ShowDialog(message);
-			}
-		}
+    private class MyHandler extends Handler {
+        @Override
+        public void handleMessage(Message msg) {
+            Bundle bundle = msg.getData();
+            if (bundle.containsKey("error")) {
+                infoTextView.setText("");
+                String message = bundle.getString("error");
+                ShowDialog(message);
+            }
+        }
 
-		public void postError(String error) {
-			Message msg = obtainMessage();
-			Bundle b = new Bundle();
-			b.putString("error", error);
-			msg.setData(b);
-			sendMessage(msg);
-		}
-	}
+        public void postError(String error) {
+            Message msg = obtainMessage();
+            Bundle b = new Bundle();
+            b.putString("error", error);
+            msg.setData(b);
+            sendMessage(msg);
+        }
+    }
 
-	public void startChat(final String nickname, final String host,
-			final String port,
-			final RuntimeCallback<AgentController> agentStartupCallback) {
+    public void startChat(final String nickname, final String host,
+                          final String port,
+                          final RuntimeCallback<AgentController> agentStartupCallback) {
 
-		final Properties profile = new Properties();
-		profile.setProperty(Profile.MAIN_HOST, host);
-		profile.setProperty(Profile.MAIN_PORT, port);
-		profile.setProperty(Profile.MAIN, Boolean.FALSE.toString());
-		profile.setProperty(Profile.JVM, Profile.ANDROID);
+        final Properties profile = new Properties();
+        profile.setProperty(Profile.MAIN_HOST, host);
+        profile.setProperty(Profile.MAIN_PORT, port);
+        profile.setProperty(Profile.MAIN, Boolean.FALSE.toString());
+        profile.setProperty(Profile.JVM, Profile.ANDROID);
 
-		if (AndroidHelper.isEmulator()) {
-			// Emulator: this is needed to work with emulated devices
-			profile.setProperty(Profile.LOCAL_HOST, AndroidHelper.LOOPBACK);
-		} else {
-			profile.setProperty(Profile.LOCAL_HOST,
-					AndroidHelper.getLocalIPAddress());
-		}
-		// Emulator: this is not really needed on a real device
-		profile.setProperty(Profile.LOCAL_PORT, "2000");
+        if (AndroidHelper.isEmulator()) {
+            // Emulator: this is needed to work with emulated devices
+            profile.setProperty(Profile.LOCAL_HOST, AndroidHelper.LOOPBACK);
+        } else {
+            profile.setProperty(Profile.LOCAL_HOST,
+                    AndroidHelper.getLocalIPAddress());
+        }
+        // Emulator: this is not really needed on a real device
+        profile.setProperty(Profile.LOCAL_PORT, "2000");
 
-		if (microRuntimeServiceBinder == null) {
-			serviceConnection = new ServiceConnection() {
-				public void onServiceConnected(ComponentName className,
-						IBinder service) {
-					microRuntimeServiceBinder = (MicroRuntimeServiceBinder) service;
-					logger.log(Level.INFO, "Gateway successfully bound to MicroRuntimeService");
-					startContainer(nickname, profile, agentStartupCallback);
-				};
+        if (runtimeServiceBinder == null) {
+            serviceConnection = new ServiceConnection() {
+                public void onServiceConnected(ComponentName className,
+                                               IBinder service) {
+                    runtimeServiceBinder = (RuntimeServiceBinder) service;
+                    logger.log(Level.INFO, "Gateway successfully bound to RuntimeService");
+                    startContainer(nickname, profile, agentStartupCallback);
+                }
 
-				public void onServiceDisconnected(ComponentName className) {
-					microRuntimeServiceBinder = null;
-					logger.log(Level.INFO, "Gateway unbound from MicroRuntimeService");
-				}
-			};
-			logger.log(Level.INFO, "Binding Gateway to MicroRuntimeService...");
-			bindService(new Intent(getApplicationContext(),
-					MicroRuntimeService.class), serviceConnection,
-					Context.BIND_AUTO_CREATE);
-		} else {
-			logger.log(Level.INFO, "MicroRumtimeGateway already binded to service");
-			startContainer(nickname, profile, agentStartupCallback);
-		}
-	}
+                ;
 
-	private void startContainer(final String nickname, Properties profile,
-			final RuntimeCallback<AgentController> agentStartupCallback) {
-		if (!MicroRuntime.isRunning()) {
-			microRuntimeServiceBinder.startAgentContainer(profile,
+                public void onServiceDisconnected(ComponentName className) {
+                    runtimeServiceBinder = null;
+                    logger.log(Level.INFO, "Gateway unbound from RuntimeService");
+                }
+            };
+            logger.log(Level.INFO, "Binding Gateway to RuntimeService...");
+            bindService(new Intent(getApplicationContext(),
+                    RuntimeService.class), serviceConnection,
+                    Context.BIND_AUTO_CREATE);
+        } else {
+            logger.log(Level.INFO, "MicroRumtimeGateway already binded to service");
+            startContainer(nickname, profile, agentStartupCallback);
+        }
+    }
+
+    private void startContainer(final String nickname, Properties profile,
+                                final RuntimeCallback<AgentController> agentStartupCallback) {
+		/*
+		if (!Runtime.isRunning()) {
+			runtimeServiceBinder.startAgentContainer(profile,
 					new RuntimeCallback<Void>() {
 						@Override
 						public void onSuccess(Void thisIsNull) {
@@ -324,11 +332,65 @@ public class MainActivity extends Activity {
 		} else {
 			startAgent(nickname, agentStartupCallback);
 		}
-	}
+		*/
 
+        runtimeServiceBinder.createMainAgentContainer(
+                new RuntimeCallback<AgentContainerHandler>() {
+                    @Override
+                    public void onSuccess(AgentContainerHandler arg0) {
+                        arg0.createNewAgent(nickname,
+                                ChatClientAgent.class.getName(),
+                                new Object[]{getApplicationContext()},
+                                new RuntimeCallback<AgentHandler>() {
+                                    @Override
+                                    public void onSuccess(AgentHandler arg0) {
+                                        // TODO Auto-generated method stub
+                                        logger.log(Level.INFO, "Successfully start of the "
+                                                + ChatClientAgent.class.getName() + "...");
+                                    }
+
+                                    @Override
+                                    public void onFailure(Throwable arg0) {
+                                        // TODO Auto-generated method stub
+
+                                    }
+                                }
+                        );
+                        arg0.createNewAgent("agent",
+                                ChatClientAgent.class.getName(),
+                                new Object[]{getApplicationContext()},
+                                new RuntimeCallback<AgentHandler>() {
+                                    @Override
+                                    public void onSuccess(AgentHandler arg0) {
+                                        // TODO Auto-generated method stub
+                                        logger.log(Level.INFO, "Successfully start of the "
+                                                + ChatClientAgent.class.getName() + "...");
+                                    }
+
+                                    @Override
+                                    public void onFailure(Throwable arg0) {
+                                        // TODO Auto-generated method stub
+
+                                    }
+                                }
+                        );
+                    }
+
+                    ;
+
+                    public void onFailure(Throwable arg0) {
+                        logger.log(Level.SEVERE, "Failed to start the "
+                                + ChatClientAgent.class.getName() + "...");
+                        agentStartupCallback.onFailure(arg0);
+                    }
+                }
+        );
+    }
+
+	/*
 	private void startAgent(final String nickname,
 			final RuntimeCallback<AgentController> agentStartupCallback) {
-		microRuntimeServiceBinder.startAgent(nickname,
+		runtimeServiceBinder.startAgent(nickname,
 				ChatClientAgent.class.getName(),
 				new Object[] { getApplicationContext() },
 				new RuntimeCallback<Void>() {
@@ -337,7 +399,7 @@ public class MainActivity extends Activity {
 						logger.log(Level.INFO, "Successfully start of the "
 								+ ChatClientAgent.class.getName() + "...");
 						try {
-							agentStartupCallback.onSuccess(MicroRuntime
+							agentStartupCallback.onSuccess(Runtime
 									.getAgent(nickname));
 						} catch (ControllerException e) {
 							// Should never happen
@@ -353,5 +415,6 @@ public class MainActivity extends Activity {
 					}
 				});
 	}
+	*/
 
 }

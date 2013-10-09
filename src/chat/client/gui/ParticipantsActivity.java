@@ -26,7 +26,7 @@ package chat.client.gui;
 import java.util.logging.Level;
 
 import chat.client.agent.ChatClientInterface;
-import jade.core.MicroRuntime;
+import jade.core.Runtime;
 import jade.util.Logger;
 import jade.wrapper.ControllerException;
 import jade.wrapper.StaleProxyException;
@@ -64,17 +64,17 @@ public class ParticipantsActivity extends ListActivity {
 		if (extras != null) {
 			nickname = extras.getString("nickname");
 		}
-
-		try {
-			chatClientInterface = MicroRuntime.getAgent(nickname)
-					.getO2AInterface(ChatClientInterface.class);
-		} catch (StaleProxyException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		} catch (ControllerException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
+//
+//		try {
+//			chatClientInterface = Runtime.getAgent(nickname)
+//					.getO2AInterface(ChatClientInterface.class);
+//		} catch (StaleProxyException e) {
+//			// TODO Auto-generated catch block
+//			e.printStackTrace();
+//		} catch (ControllerException e) {
+//			// TODO Auto-generated catch block
+//			e.printStackTrace();
+//		}
 
 		myReceiver = new MyReceiver();
 

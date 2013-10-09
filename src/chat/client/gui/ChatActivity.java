@@ -25,7 +25,7 @@ package chat.client.gui;
 
 import java.util.logging.Level;
 
-import jade.core.MicroRuntime;
+import jade.core.Runtime;
 import jade.util.Logger;
 import jade.wrapper.ControllerException;
 import jade.wrapper.O2AException;
@@ -74,14 +74,14 @@ public class ChatActivity extends Activity {
 			nickname = extras.getString("nickname");
 		}
 
-		try {
-			chatClientInterface = MicroRuntime.getAgent(nickname)
-					.getO2AInterface(ChatClientInterface.class);
-		} catch (StaleProxyException e) {
-			showAlertDialog(getString(R.string.msg_interface_exc), true);
-		} catch (ControllerException e) {
-			showAlertDialog(getString(R.string.msg_controller_exc), true);
-		}
+//		try {
+//			chatClientInterface = Runtime.getAgent(nickname)
+//					.getO2AInterface(ChatClientInterface.class);
+//		} catch (StaleProxyException e) {
+//			showAlertDialog(getString(R.string.msg_interface_exc), true);
+//		} catch (ControllerException e) {
+//			showAlertDialog(getString(R.string.msg_controller_exc), true);
+//		}
 
 		myReceiver = new MyReceiver();
 
